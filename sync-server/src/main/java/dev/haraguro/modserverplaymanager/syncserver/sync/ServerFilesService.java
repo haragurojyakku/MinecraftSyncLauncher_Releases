@@ -15,7 +15,9 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
@@ -74,6 +76,7 @@ public class ServerFilesService {
     private final Path modsDir;
     private final Path clientOnlyModsDir;
     private final Path resourcePacksDir;
+    private final Path modListReportPath;
     private final SyncServerSettingsService settingsService;
     private final ModCategoryStore modCategories;
 
@@ -81,9 +84,11 @@ public class ServerFilesService {
         this.modsDir = serverDir.resolve("mods");
         this.clientOnlyModsDir = modsDir.resolve(CLIENT_ONLY_SUBDIR);
         this.resourcePacksDir = serverDir.resolve("resourcepacks");
+        this.modListReportPath = serverDir.resolve("MODS.md");
         this.settingsService = settingsService;
         this.modCategories = new ModCategoryStore(modsDir);
         migrateClientOnlyMods();
+        writeModListReport();
     }
 
     public SyncManifest buildManifest(String minecraftVersion, String fabricLoaderVersion) {
@@ -142,7 +147,9 @@ public class ServerFilesService {
         modCategories.set(baseFileName, category);
         Path enabledPath = targetDir.resolve(baseFileName);
         Path disabledPath = targetDir.resolve(baseFileName + DISABLED_SUFFIX);
-        return Optional.of(describeManaged(Files.isRegularFile(enabledPath) ? enabledPath : disabledPath, modCategories));
+        ManagedFile result = describeManaged(Files.isRegularFile(enabledPath) ? enabledPath : disabledPath, modCategories);
+        writeModListReport();
+        return Optional.of(result);
     }
 
     /** Whichever of modsDir/clientOnlyModsDir currently holds this mod (enabled or disabled), or null. */
@@ -201,6 +208,54 @@ public class ServerFilesService {
     }
 
     /**
+     * Regenerates {@code server/MODS.md}, a human-readable snapshot of {@link #listManagedMods()}.
+     * The launcher's admin UI already gets this live via {@code SYNC_MODS_LIST}, but that requires
+     * running the launcher; this file lets anyone with server/repo access check what's installed
+     * without it. Called after every mod mutation (add/delete/toggle/category change) plus once at
+     * startup, so it's never stale.
+     */
+    private void writeModListReport() {
+        List<ManagedFile> mods = listManagedMods().stream()
+                .sorted(Comparator.comparing(ManagedFile::getFileName, String.CASE_INSENSITIVE_ORDER))
+                .collect(Collectors.toList());
+
+        StringBuilder report = new StringBuilder();
+        report.append("# server/mods 一覧\n\n");
+        report.append("<!-- 自動生成ファイルです。手動で編集しないでください。\n");
+        report.append("     sync-server が Mod の追加・削除・有効/無効切替・カテゴリ変更のたびに再生成します。 -->\n\n");
+        report.append("生成日時: ").append(Instant.now()).append("\n\n");
+        report.append("| Mod | サイズ | 状態 | カテゴリ |\n");
+        report.append("|---|---|---|---|\n");
+        for (ManagedFile mod : mods) {
+            report.append("| ").append(mod.getFileName())
+                    .append(" | ").append(formatSize(mod.getSizeBytes()))
+                    .append(" | ").append(mod.isEnabled() ? "有効" : "無効")
+                    .append(" | ").append(mod.getCategory())
+                    .append(" |\n");
+        }
+        if (mods.isEmpty()) {
+            report.append("| _(なし)_ | | | |\n");
+        }
+
+        try {
+            Files.writeString(modListReportPath, report.toString());
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    private static String formatSize(long bytes) {
+        if (bytes < 1024) {
+            return bytes + " B";
+        }
+        double kb = bytes / 1024.0;
+        if (kb < 1024) {
+            return String.format(Locale.ROOT, "%.1f KB", kb);
+        }
+        return String.format(Locale.ROOT, "%.1f MB", kb / 1024.0);
+    }
+
+    /**
      * @throws IllegalArgumentException if fileName isn't a plain ".jar" name (no path separators/traversal)
      * @throws FileAlreadyExistsException if preventOverwriteOnUpload is on and a file with that name
      *         already exists (enabled or disabled) — the caller must remove/rename it first
@@ -215,7 +270,9 @@ public class ServerFilesService {
         Path targetDir = category == ModCategory.CLIENT_ONLY ? clientOnlyModsDir : modsDir;
         Path otherDir = targetDir == modsDir ? clientOnlyModsDir : modsDir;
         deleteFile(otherDir, fileName); // clean up a stray same-named copy left behind in the other dir, if any
-        return addFile(targetDir, fileName, MOD_EXTENSION, content, modCategories);
+        ManagedFile result = addFile(targetDir, fileName, MOD_EXTENSION, content, modCategories);
+        writeModListReport();
+        return result;
     }
 
     /**
@@ -240,6 +297,7 @@ public class ServerFilesService {
         boolean deleted = deleteFile(modsDir, baseFileName) | deleteFile(clientOnlyModsDir, baseFileName);
         if (deleted) {
             modCategories.remove(baseFileName);
+            writeModListReport();
         }
         return deleted;
     }
@@ -250,7 +308,13 @@ public class ServerFilesService {
 
     public Optional<ManagedFile> toggleModFile(String baseFileName) throws IOException {
         Optional<ManagedFile> result = toggleFile(modsDir, baseFileName, modCategories);
-        return result.isPresent() ? result : toggleFile(clientOnlyModsDir, baseFileName, modCategories);
+        if (result.isEmpty()) {
+            result = toggleFile(clientOnlyModsDir, baseFileName, modCategories);
+        }
+        if (result.isPresent()) {
+            writeModListReport();
+        }
+        return result;
     }
 
     public Optional<ManagedFile> toggleResourcePackFile(String baseFileName) throws IOException {
