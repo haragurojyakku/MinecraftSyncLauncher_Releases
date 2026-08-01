@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "id": "modserverplaymanager-mod",
+  "version": "${version}",
+  "name": "ModServerPlayManagerByHaraguro Mod",
+  "description": "In-game companion mod that talks to the mcsync API server for player data and external services.",
+  "authors": [],
+  "license": "MIT",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "dev.haraguro.modserverplaymanager.mod.SyncMod"
+    ],
+    "client": [
+      "dev.haraguro.modserverplaymanager.mod.SyncModClient"
+    ]
+  },
+  "mixins": [
+    "mcsync-mod.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.19.0",
+    "minecraft": "26.2",
+    "java": ">=25",
+    "fabric-api": "*"
+  }
+}

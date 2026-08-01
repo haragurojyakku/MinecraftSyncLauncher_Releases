@@ -1,0 +1,51 @@
+# Gradle
+.gradle/
+**/build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# Packaged native app images (jpackage output copied to repo root) — large
+# bundled-JRE binaries, rebuild with `./gradlew :launcher:jpackageAppImage
+# :server-manager:jpackageAppImage` rather than tracking in git.
+/dist/
+
+# IDE-compiled output (VS Code Java extension writes here, separate from Gradle's build/)
+**/bin/
+
+# IDE
+.idea/
+*.iml
+.vscode/*
+!.vscode/launch.json
+!.vscode/settings.json
+!.vscode/tasks.json
+.classpath
+.project
+.settings/
+out/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Fabric Loom run directories (test client/server launched from the mod module)
+mod/run/
+
+# Launcher local data (downloaded mods/resourcepacks, user profile)
+launcher/run/
+launcher/.modserverplaymanager/
+
+# server/ and TestAppSetting/ moved out of this repo to the parent
+# directory (sibling of this repo, one level up) — no longer tracked here
+# (server/ used to be backed up in-repo, see git history before this
+# change and README "Development vs. release repos"). Ignored defensively
+# in case either gets recreated here locally.
+/server/
+/TestAppSetting/
+
+# API server local data
+sync-server/data/
+
+# server-manager local data (console.log, etc.)
+server-manager/data/
+
+/data/

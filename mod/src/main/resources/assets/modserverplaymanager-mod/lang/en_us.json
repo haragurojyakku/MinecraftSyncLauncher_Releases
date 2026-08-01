@@ -1,0 +1,15 @@
+{
+    "mcsync.bank.balance": "Balance: %s",
+    "mcsync.bank.unavailable": "The bank is unavailable right now (sync-server unreachable).",
+    "mcsync.bank.insufficient_balance": "Insufficient balance.",
+    "mcsync.bank.pay_self": "You cannot pay yourself.",
+    "mcsync.bank.pay_sent": "Sent %s to %s.",
+    "mcsync.bank.pay_received": "Received %s from %s.",
+    "mcsync.bank.ender_chest_button": "Bank",
+    "mcsync.bank.panel.title": "Bank",
+    "mcsync.bank.panel.loading": "Balance: ...",
+    "mcsync.bank.panel.amount": "Amount",
+    "mcsync.bank.panel.deposit": "Deposit emeralds",
+    "mcsync.bank.panel.withdraw": "Withdraw emeralds",
+    "mcsync.bank.panel.invalid_amount": "Enter a whole number greater than 0."
+}
